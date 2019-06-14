@@ -1,26 +1,37 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import { TextDocument, Diagnostic, DiagnosticSeverity, Range, workspace, languages, ExtensionContext } from 'vscode';
+import { signaturesDb } from './signatures';
+import { Some } from 'fp-ts/lib/Option';
+import { array } from 'fp-ts/es6/Array';
 
 const diagnosticCollection = languages.createDiagnosticCollection();
 
 function validateTextDocument(textDocument: TextDocument): void {
 	// The validator creates diagnostics for all uppercase words length 2 and more
+	const lang = textDocument.languageId;
+	const signatures = new Some<RegExp[]>([])
+		.map(signatures => lang === 'python' ? [...signatures, ...signaturesDb.python] : signatures)
+		.getOrElse([]);
 	const text = textDocument.getText();
-	const pattern = /\b[A-Z]{2,}\b/g;
-	
-	let diagnostics: Diagnostic[] = [];
-	let match: RegExpExecArray | null;
-	while (match = pattern.exec(text)) {
-		const index = match.index;
-		const value = match[0];
-		const diagnostic = new Diagnostic(
-			new Range(textDocument.positionAt(index), textDocument.positionAt(index + value.length)),
- 			`${value} is all uppercase.`,
-			DiagnosticSeverity.Warning
-		);
-		diagnostics.push(diagnostic);
-	};
+
+	let diagnostics = signatures
+		.map(signature => {
+			const _diagnostics: Diagnostic[] = [];
+			let match: RegExpExecArray | null;
+			while (match = signature.exec(text)) {
+				const index = match.index;
+				const value = match[0];
+				const diagnostic = new Diagnostic(
+					new Range(textDocument.positionAt(index), textDocument.positionAt(index + value.length)),
+					`${value} looks suspicious.`,
+					DiagnosticSeverity.Warning
+				);
+				_diagnostics.push(diagnostic);
+			}
+			return _diagnostics;
+		})
+		.reduce((acc, curr) => [...acc, ...curr]);
 
 	console.log(diagnostics);
 	// Send the computed diagnostics to VS Code.
