@@ -3,16 +3,15 @@
 import { TextDocument, Diagnostic, DiagnosticSeverity, Range, workspace, languages, ExtensionContext } from 'vscode';
 import { signaturesDb } from './signatures';
 import { Some } from 'fp-ts/lib/Option';
-import { array } from 'fp-ts/es6/Array';
 
 const diagnosticCollection = languages.createDiagnosticCollection();
 
 function validateTextDocument(textDocument: TextDocument): void {
 	// The validator creates diagnostics for all uppercase words length 2 and more
 	const lang = textDocument.languageId;
-	const signatures = new Some<RegExp[]>([])
-		.map(signatures => lang === 'python' ? [...signatures, ...signaturesDb.python] : signatures)
-		.getOrElse([]);
+	const signatureDb = signaturesDb.languages.find(language => language.languages.indexOf(lang));
+	const langSignatures = signatureDb ? signatureDb.signatures : [];
+	const signatures = [...signaturesDb.common, ...langSignatures];
 	const text = textDocument.getText();
 
 	let diagnostics = signatures
